@@ -1,0 +1,76 @@
+{
+  "variables": {
+    "aws_access_key": "",
+    "aws_secret_key": "",
+    "zookeeper_uid": "2006"
+  },
+
+  "builders": [{
+    "type":       "amazon-ebs",
+    "access_key": "{{user `aws_access_key`}}",
+    "secret_key": "{{user `aws_secret_key`}}",
+    "ssh_username": "{{user `aws_ssh_username`}}",
+    "region":     "eu-west-1",
+
+    "source_ami_filter": {
+
+      "filters": {
+        "virtualization-type": "hvm", "name": "ubuntu/images/*ubuntu-xenial-16.04-amd64-server-*",
+        "root-device-type": "ebs"
+      },
+
+      "owners": ["099720109477"],
+      "most_recent": true
+    },
+
+    "instance_type": "t2.micro",
+    "ssh_username":  "ubuntu",
+    "ami_name":      "packer-example {{timestamp}}"
+  }],
+
+  "provisioners": [{
+    "type":             "shell",
+    "inline_shebang":   "/bin/bash -e",
+    "environment_vars": ["DEBIAN_FRONTEND=noninteractive"],
+    "inline": [
+      "unset HISTFILE",
+      "history -cw",
+
+      "echo ===> Waiting for EC2 Instance boot",
+      "timeout 180 /bin/bash -c 'until stat /var/lib/cloud/instance/boot-finished &>/dev/null; do echo waiting...; sleep 6; done'",
+
+      "echo === Configuring System Settings ===",
+      "echo 'dash dash/sh boolean false' | sudo debconf-set-selections",
+      "sudo dpkg-reconfigure -f noninteractive dash",
+      "sudo update-locale LC_CTYPE=en_US.UTF-8",
+      "echo 'export TZ=:/etc/localtime' | sudo tee /etc/profile.d/tz.sh > /dev/null",
+
+      "echo ===> Installing OpenJDK 9",
+      "sudo apt-get -qq update",
+      "sudo apt-get purge openjdk-\\*",
+      "sudo apt-get -o Dpkg::Options::=\"--force-overwrite\" -y -qq install openjdk-9-jdk",
+      "sudo apt-get -y -qq --purge autoremove",
+      "sudo apt-get autoclean",
+      "sudo apt-get clean",
+
+      "echo ===> Installing Zookeeper",
+      "sudo groupadd -g {{user `zookeeper_uid`}} zookeeper",
+      "sudo useradd -m -u {{user `zookeeper_uid`}} -g {{user `zookeeper_uid`}} -c 'Apache Zookeeper' -s /bin/bash -d /srv/zookeeper zookeeper",
+      "sudo apt-get -y -qq install zookeeperd",
+      "sudo usermod -a -G zookeeper ubuntu",
+
+      "echo === System Cleanup ===",
+      "sudo rm -f /root/.bash_history",
+      "sudo rm -f /home/ubuntu/.bash_history",
+      "sudo rm -f /var/log/wtmp",
+      "sudo rm -f /var/log/btmp",
+      "sudo rm -rf /var/log/installer",
+      "sudo rm -rf /var/lib/cloud/instances",
+      "sudo rm -rf /tmp/* /var/tmp/* /tmp/.*-unix",
+      "sudo find /var/cache -type f -delete",
+      "sudo find /var/log -type f | while read f; do echo -n '' | sudo tee $f > /dev/null; done;",
+      "sudo find /var/lib/apt/lists -not -name lock -type f -delete",
+      "sudo sync"
+    ]
+  }]
+}

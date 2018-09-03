@@ -25,7 +25,7 @@
 
     "instance_type": "t2.micro",
     "ssh_username":  "ubuntu",
-    "ami_name":      "packer-example {{timestamp}}"
+    "ami_name":      "zookeeper {{timestamp}}"
   }],
 
   "provisioners": [{
@@ -49,9 +49,6 @@
       "sudo apt-get -qq update",
       "sudo apt-get purge openjdk-\\*",
       "sudo apt-get -o Dpkg::Options::=\"--force-overwrite\" -y -qq install openjdk-9-jdk",
-      "sudo apt-get -y -qq --purge autoremove",
-      "sudo apt-get autoclean",
-      "sudo apt-get clean",
 
       "echo ===> Installing Zookeeper",
       "sudo groupadd -g {{user `zookeeper_uid`}} zookeeper",
@@ -60,6 +57,9 @@
       "sudo usermod -a -G zookeeper ubuntu",
 
       "echo === System Cleanup ===",
+      "sudo apt-get -y -qq --purge autoremove",
+      "sudo apt-get autoclean",
+      "sudo apt-get clean",
       "sudo rm -f /root/.bash_history",
       "sudo rm -f /home/ubuntu/.bash_history",
       "sudo rm -f /var/log/wtmp",
